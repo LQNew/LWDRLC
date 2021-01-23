@@ -2,7 +2,6 @@ import numpy as np
 import random
 import torch
 
-from utils.segment_tree import SumSegmentTree, MinSegmentTree
 from spinupUtils.mpi_tools import mpi_statistics_scalar
 
 

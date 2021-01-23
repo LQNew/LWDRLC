@@ -27,17 +27,22 @@ docker build . -t lwdrl
 For other dockerfiles, you can go to [RL Dockefiles](https://github.com/LQNew/Dockerfiles).
 
 ### Launch experiments
-Run with the scripts:
+Run with the scripts `batch_off_policy_mujoco_cuda.sh` / `batch_off_policy_dmc_cuda.sh` / `batch_on_policy_mujoco_cuda.sh` / `batch_on_policy_dmc_cuda.sh`:
 ```bash
 # eg.
-bash batch_off_plicy_mujoco_cuda.sh Ant-v2 TD3 0  # env_name: Ant-v2, algorithm: TD3, CUDA_Num : 0
+bash batch_off_policy_mujoco_cuda.sh Hopper-v2 TD3 0  # env_name: Ant-v2, algorithm: TD3, CUDA_Num : 0
 ```
 
 ### Visualization of the environments
+Run with the scripts `render_dmc.py` / `render_mujoco.py`:
 ```bash
 # eg.
 python render_dmc.py --env swimmer-swimmer6  # env_name: swimmer-swimmer6
 ```
+### Performance on MuJoCo
+Including `Ant-v2`, `HalfCheetah-v2`, `Hopper-v2`, `Humanoid-v2`, `Swimmer-v2`, `Walker2d-v2`.
+<img src="images/QingLi-MuJoCo.png" width="1000" align="middle"/>
+<br>
 
 ### Citation
 ```bash
