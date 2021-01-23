@@ -1,0 +1,52 @@
+## LWDRL: LightWeight Deep Reinforcement Learning Libraray
+LWDRL is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
+
+### :rocket: Beyond State-Of-The-Art
+LWDRL provides further tweeks to improve performance of state-of-the-art algorithms potentially beyond their original papers. Therefore, LWDRL enables every user to achieve professional-level performance just in a few lines of codes.
+
+### Supported algorithms
+| algorithm | continuous control | on-policy / off-policy |
+|:-|:-:|:-:|
+| Vanilla Policy Gradient (VPG) | :white_check_mark: | *on-policy*|
+| [Proximal Policy Optimization (PPO)](https://arxiv.org/abs/1707.06347) | :white_check_mark: | *on-policy* | 
+| [Deep Deterministic Policy Gradients (DDPG)](https://arxiv.org/abs/1509.02971) | :white_check_mark: | *off-policy* |
+| [Twin Delayed Deep Deterministic Policy Gradients (TD3)](https://arxiv.org/abs/1802.09477) | :white_check_mark: | *off-policy* |
+| [Soft Actor-Critic (SAC)](https://arxiv.org/abs/1812.05905) | :white_check_mark: |*off-policy* | 
+
+## Instructions
+### Recommend: Run with Docker
+```bash
+# python        3.6    (apt)
+# pytorch       1.4.0  (pip)
+# tensorflow    1.14.0 (pip)
+# DMC Control Suite and MuJoCo
+# Attention: Need `mjkey.txt`!!
+cd dockerfiles
+docker build . -t lwdrl
+```
+For other dockerfiles, you can go to [RL Dockefiles](https://github.com/LQNew/Dockerfiles).
+
+### Launch experiments
+Run with the scripts:
+```bash
+# eg.
+bash batch_off_plicy_mujoco_cuda.sh Ant-v2 TD3 0  # env_name: Ant-v2, algorithm: TD3, CUDA_Num : 0
+```
+
+### Visualization of the environments
+```bash
+# eg.
+python render_dmc.py --env swimmer-swimmer6  # env_name: swimmer-swimmer6
+```
+
+### Citation
+```bash
+@misc{QingLi2021lwdrl,
+  author = {Qing Li},
+  title = {LWDRL: LightWeight Deep Reinforcement Learning Library},
+  year = {2021},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/LQNew/LWDRL}}
+}
+```
