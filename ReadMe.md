@@ -33,6 +33,15 @@ Run with the scripts `batch_off_policy_mujoco_cuda.sh` / `batch_off_policy_dmc_c
 bash batch_off_policy_mujoco_cuda.sh Hopper-v2 TD3 0  # env_name: Ant-v2, algorithm: TD3, CUDA_Num : 0
 ```
 
+### Plot results
+```bash
+# eg. Notice: `-l` denotes labels, `data/DDPG-Hopper-v2/` represents the collecting dataset, 
+# and `-s` represents smoothing value.
+python spinupUtils/plot.py \
+    data/DDPG-Hopper-v2/ \
+    -l DDPG -s 10
+```
+
 ### Visualization of the environments
 Run with the scripts `render_dmc.py` / `render_mujoco.py`:
 ```bash
