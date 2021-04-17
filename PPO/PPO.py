@@ -133,10 +133,9 @@ class PPO(nn.Module):
 		
 		self.is_discrete = is_discrete
 		# Hyperparameter for clipping in the policy objective.
-		# Roughly: how far can the new policy go from the old policy while 
-		# still profiting (improving the objective function)? 
+		# Roughly: how far can the new policy go from the old policy while still profiting (improving the objective function)? 
 		# The new policy can still go farther than the clip_ratio says, 
-		# but it doesn't help on the objective anymore. (Usually small, 0.1 to 0.3.) 
+		# but it doesn't help on the objective anymore. (Usually small, 0.1 ~ 0.3.) 
 		self.clip_ratio = clip_ratio
 		# Roughly what KL divergence we think is appropriate between new and old policies after an update. 
 		# This will get used for early stopping. (Usually small, 0.01 or 0.05.)

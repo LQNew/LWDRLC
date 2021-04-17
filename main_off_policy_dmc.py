@@ -64,12 +64,7 @@ if __name__ == "__main__":
 	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}")
 	print(f"---------------------------------------")
 
-	if args.save_model and not os.path.exists("./models"):
-		os.makedirs("./models")
-	
-	logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False)
-	logger = EpochLogger(**logger_kwargs)
-
+	# Make envs
 	env = environments.ControlSuite(args.env)
 	eval_env = environments.ControlSuite(args.env)
 
@@ -97,6 +92,7 @@ if __name__ == "__main__":
 	# Initialize policy
 	# ----------------------------------------------
 	if args.policy == "DDPG":
+		# if the formal argument defined in function `DDPG()` are regular params, can pass `**-styled` actual argument.
 		policy = DDPG.DDPG(**kwargs)
 	# ---------------------------------------------------
 	elif args.policy == "TD3":
@@ -112,11 +108,20 @@ if __name__ == "__main__":
 	elif args.policy == "SAC_adjusted_temperature":
 		policy = SAC_adjusted_temperature.SAC(**kwargs)
 	else:
-		raise ValueError(f"Don't support {args.policy}")
+		raise ValueError(f"Invalid Policy: {args.policy}!")
 
+	if args.save_model and not os.path.exists("./models"):
+		os.makedirs("./models")
+	
 	if args.load_model != "":
 		policy_file = file_name if args.load_model == "default" else args.load_model
+		if not os.path.exists(f"./models/{policy_file}"):
+			assert f"The loading model path of `../models/{policy_file}` does not exist! "
 		policy.load(f"./models/{policy_file}")
+
+	# Setup loggers
+	logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False)
+	logger = EpochLogger(**logger_kwargs)
 
 	_replay_buffer = replay_buffer.ReplayBuffer(state_dim, action_dim)
 	
@@ -130,7 +135,7 @@ if __name__ == "__main__":
 		episode_timesteps += 1
 
 		# Select action randomly or according to policy
-		if t < args.start_timesteps:
+		if t < int(args.start_timesteps):
 			action = env.action_space.sample()
 		else:
 			if args.policy.startswith("SAC"):
@@ -156,7 +161,7 @@ if __name__ == "__main__":
 		episode_reward += reward
 
 		# Train agent after collecting sufficient data
-		if t >= args.start_timesteps:
+		if t >= int(args.start_timesteps):
 			policy.train(_replay_buffer, args.batch_size)
 
 		if done: 

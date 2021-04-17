@@ -56,17 +56,12 @@ if __name__ == "__main__":
 	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}")
 	print(f"---------------------------------------")
 
-	if args.save_model and not os.path.exists("./models"):
-		os.makedirs("./models")
-
 	mpi_fork(args.cpus)  # run parallel code with mpi
 
 	# Special function to avoid certain slowdowns from PyTorch + MPI combo.
 	setup_pytorch_for_mpi()
 
-	logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False)
-	logger = EpochLogger(**logger_kwargs)
-
+	# Make envs
 	env = environments.ControlSuite(args.env)
 	eval_env = environments.ControlSuite(args.env)
 
@@ -104,18 +99,26 @@ if __name__ == "__main__":
 	elif args.policy == "PPO":
 		policy = PPO.PPO(**kwargs)
 	else:
-		raise ValueError(f"Don't support {args.policy}")
+		raise ValueError(f"Invalid Policy: {args.policy}!")
+
+	if args.save_model and not os.path.exists("./models"):
+		os.makedirs("./models")
 
 	if args.load_model != "":
 		policy_file = file_name if args.load_model == "default" else args.load_model
+		if not os.path.exists(f"./models/{policy_file}"):
+			assert f"The loading model path of `../models/{policy_file}` does not exist! "
 		policy.load(f"./models/{policy_file}")
+
+	# Setup loggers
+	logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False)
+	logger = EpochLogger(**logger_kwargs)
 
 	# Sync params across processes
 	sync_params(policy)
 
 	# Set up experience buffer
 	local_steps_per_epoch = int(args.steps_per_epoch / num_procs())
-
 	_replay_buffer = replay_buffer.VPGBuffer(
 		state_dim, action_dim, local_steps_per_epoch, args.discount, args.lam, is_discrete)
 	

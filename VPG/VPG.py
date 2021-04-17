@@ -47,7 +47,7 @@ class DiscreteActor(nn.Module):
 	def forward(self, state, action=None):
 		a = torch.tanh(self.l1(state))
 		a = torch.tanh(self.l2(a))
-		logits_a = self.logits(a)  # batch_size * action_dim
+		logits_a = self.logits(a)  # [batch_size x action_dim]
 		logp_all = F.log_softmax(logits_a, dim=-1)  # log(prob_i) = log(e^i / sum(e^j))
 		probs_a = F.softmax(logp_all, dim=-1)  # prob_i = e^i / sum(e^j)
 		# pick actions from multinomial distribution according to `probs_a`
