@@ -1,4 +1,4 @@
-## LWDRLC: LightWeight Deep Reinforcement Learning Libraray for Continous control
+## LWDRLC: LightWeight Deep Reinforcement Learning libraray for Continous control
 LWDRLC is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
 
 ### :rocket: Beyond State-Of-The-Art
