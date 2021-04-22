@@ -1,5 +1,5 @@
-## LWDRL: LightWeight Deep Reinforcement Learning Libraray
-LWDRL is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
+## LWDRLC: LightWeight Deep Reinforcement Learning Libraray for Continous control
+LWDRLC is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
 
 ### :rocket: Beyond State-Of-The-Art
 LWDRL provides further tricks to improve performance of state-of-the-art algorithms potentially beyond their original papers. Therefore, LWDRL enables every user to achieve professional-level performance just in a few lines of codes.
