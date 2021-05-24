@@ -31,11 +31,13 @@ def plot_data(data, xaxis="Epoch", value="AverageEpRet", condition="Condition1",
 
 	# Default
 	sns.set(style="white", font_scale=1.5)
-	ax = sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci="sd", **kwargs)
+	# ax = sns.tsplot(data=data, time=xaxis, value=value, unit="Unit", condition=condition, ci="sd", **kwargs)
+	ax = sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci="sd", **kwargs)
+	
 	ax.set_xlabel("Steps")
 	"""
 	If you upgrade to any version of Seaborn greater than 0.8.1, switch from 
-	tsplot to lineplot replacing L29 with:
+	tsplot to lineplot replacing L34 with:
 
 		sns.lineplot(data=data, x=xaxis, y=value, hue=condition, ci="sd", **kwargs)
 
@@ -87,7 +89,7 @@ def get_datasets(logdir, condition=None):
 			units[condition1] += 1
 
 			try:
-				exp_data = pd.read_table(os.path.join(root, "progress.txt"))
+				exp_data = pd.read_csv(os.path.join(root, "progress.txt"), sep="\t",)
 			except:
 				print("Could not read from %s"%os.path.join(root, "progress.txt"))
 				continue
@@ -149,14 +151,16 @@ def get_all_datasets(all_logdirs, legend=None, select=None, exclude=None):
 
 
 def make_plots(all_logdirs, legend=None, xaxis=None, values=None, count=False,  
-			   font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean'):
+			   font_scale=1.5, smooth=1, select=None, exclude=None, estimator='mean', title=None):
 	data = get_all_datasets(all_logdirs, legend, select, exclude)
 	values = values if isinstance(values, list) else [values]
 	condition = 'Condition2' if count else 'Condition1'
-	estimator = getattr(np, estimator)      # choose what to show on main curve: mean? max? min?
+	estimator = getattr(np, estimator)  # choose what to show on main curve: mean? max? min?
 	for value in values:
 		plt.figure()
 		plot_data(data, xaxis=xaxis, value=value, condition=condition, smooth=smooth, estimator=estimator)
+	if title is not None:
+		plt.title(title)
 	plt.show()
 
 
@@ -167,6 +171,7 @@ def main():
 	parser.add_argument('--legend', '-l', nargs='*')
 	parser.add_argument('--xaxis', '-x', default='TotalEnvInteracts')
 	parser.add_argument('--value', '-y', default='Average Return', nargs='*')
+	parser.add_argument('--title', '-t', default=None, type=str)
 	parser.add_argument('--count', action='store_true')
 	parser.add_argument('--smooth', '-s', type=int, default=1)
 	parser.add_argument('--select', nargs='*')
@@ -224,7 +229,7 @@ def main():
 
 	make_plots(args.logdir, args.legend, args.xaxis, args.value, args.count, 
 			   smooth=args.smooth, select=args.select, exclude=args.exclude,
-			   estimator=args.est)
+			   estimator=args.est, title=args.title)
 
 if __name__ == "__main__":
 	main()
