@@ -2,6 +2,5 @@ __pycache__
 data*
 *.pyc
 models*
-mjkey.txt
 *single_process/
 *single_process*
