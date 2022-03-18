@@ -26,7 +26,13 @@ def weight_init(m):
 
 # Returns continuous actions for given states
 class Actor(nn.Module):
-	def __init__(self, state_dim, action_dim, max_action, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		max_action: float, 
+		hidden_dim: int = 256
+	):
 		super(Actor, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, hidden_dim)
@@ -34,7 +40,7 @@ class Actor(nn.Module):
 		self.l3 = nn.Linear(hidden_dim, action_dim)
 		self.max_action = max_action
 		self.apply(weight_init)
-	
+
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
@@ -43,7 +49,12 @@ class Actor(nn.Module):
 
 # Return Q-value for given state/action pairs
 class Critic(nn.Module):
-	def __init__(self, state_dim, action_dim, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		hidden_dim: int = 256
+	):
 		super(Critic, self).__init__()
 		# Q architecture
 		self.l1 = nn.Linear(state_dim + action_dim, hidden_dim)
@@ -53,7 +64,7 @@ class Critic(nn.Module):
 		self.apply(weight_init)
 
 	def forward(self, state, action):
-		sa = torch.cat([state, action], 1)
+		sa = torch.cat([state, action], dim=1)
 		q = F.relu(self.l1(sa))
 		q = F.relu(self.l2(q))
 		q = self.l3(q)
@@ -63,13 +74,13 @@ class Critic(nn.Module):
 
 class DDPG(object):
 	def __init__(
-		self, 
-		state_dim, 
-		action_dim, 
-		max_action, 
-		discount=0.99, 
-		tau=0.005,
-		hidden_dim=256,
+		self,
+		state_dim: int,
+		action_dim: int,
+		max_action: float = 1.0,
+		discount: float = 0.99,
+		tau: float = 0.005,
+		hidden_dim: int = 256,
 	):
 		self.actor = Actor(state_dim, action_dim, max_action, hidden_dim).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
@@ -95,7 +106,7 @@ class DDPG(object):
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
 		target_Q = reward + (not_done * self.discount * target_Q).detach()
 
-		# Get current Q estimate
+		# Get current Q estimates
 		current_Q = self.critic(state, action)
 
 		# Compute critic loss
@@ -124,17 +135,12 @@ class DDPG(object):
 	# save the model
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
-		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
-		
 		torch.save(self.actor.state_dict(), filename + "_actor")
-		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
 
 	# load the model
 	def load(self, filename):
-		self.critic.load_state_dict(torch.load(filename + "_critic"))
-		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.critic.load_state_dict(torch.load(filename + "_critic", map_location=device))
 		self.critic_target = copy.deepcopy(self.critic)
 
-		self.actor.load_state_dict(torch.load(filename + "_actor"))
-		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
 		self.actor_target = copy.deepcopy(self.actor)

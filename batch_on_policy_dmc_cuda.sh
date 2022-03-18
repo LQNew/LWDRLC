@@ -10,24 +10,20 @@ do
 		--policy ${policy} \
 		--env $ENV \
 		--seed $i \
-		--cpus 1 \
 		--exp_name "${policy}-${ENV}" & \
 	CUDA_VISIBLE_DEVICES=$CudaNum python main_on_policy_dmc.py \
 		--policy ${policy} \
 		--env $ENV \
 		--seed $[$i+1] \
-		--cpus 1 \
 		--exp_name "${policy}-${ENV}" & \
 	CUDA_VISIBLE_DEVICES=$CudaNum python main_on_policy_dmc.py \
 		--policy ${policy} \
 		--env $ENV \
 		--seed $[$i+2] \
-		--cpus 1 \
 		--exp_name "${policy}-${ENV}" & \
 	CUDA_VISIBLE_DEVICES=$CudaNum python main_on_policy_dmc.py \
 		--policy ${policy} \
 		--env $ENV \
 		--seed $[$i+3] \
-		--cpus 1 \
 		--exp_name "${policy}-${ENV}"
 done

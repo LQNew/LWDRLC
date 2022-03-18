@@ -33,7 +33,13 @@ def gaussian_logprob(noise, log_std):
 
 # Returns continuous actions for given states
 class Actor(nn.Module):
-	def __init__(self, state_dim, action_dim, max_action, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		max_action: float, 
+		hidden_dim: int = 256
+	):
 		super(Actor, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, hidden_dim)
@@ -41,6 +47,7 @@ class Actor(nn.Module):
 		self.mean = nn.Linear(hidden_dim, action_dim)
 		self.log_std = nn.Linear(hidden_dim, action_dim)
 		self.max_action = max_action
+		# self.soft_plus = nn.Softplus()
 		self.apply(weight_init)
 
 	def forward(self, state, deterministic=False, with_logprob=True):
@@ -54,20 +61,29 @@ class Actor(nn.Module):
 		if deterministic:
 			z = mu_a
 		else:
-			noise = torch.randn_like(mu_a)  # sampled from guassian distribution
-			z = mu_a + noise * std_a
+			noise = torch.randn_like(mu_a, requires_grad=True)  # sampled from guassian distribution
+			z = mu_a + noise * std_a  # reparameterization trick
 		action = torch.tanh(z) 
 
 		if with_logprob and not deterministic:
 			logp_pi = gaussian_logprob(noise, log_std_a).sum(axis=-1)
+			# logp_pi -= (
+			# 	np.log(2.0) - (action + self.soft_plus(-2.0 * action)).sum(axis=-1)
+			# ) * 2.0
 			logp_pi = logp_pi - (1.0 - action**2).clamp(min=1e-6).log().sum(axis=-1)
 		else:
 			logp_pi = None
 		return self.max_action * action, logp_pi
 
 
+# Returns Q-value for given state/action pairs
 class Critic(nn.Module):
-	def __init__(self, state_dim, action_dim, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		hidden_dim: int = 256
+	):
 		super(Critic, self).__init__()
 		# Q1 architecture
 		self.l1 = nn.Linear(state_dim + action_dim, hidden_dim)
@@ -81,7 +97,7 @@ class Critic(nn.Module):
 		self.apply(weight_init)
 
 	def forward(self, state, action):
-		sa = torch.cat([state, action], 1)
+		sa = torch.cat([state, action], dim=1)
 
 		q1 = F.relu(self.l1(sa))
 		q1 = F.relu(self.l2(q1))
@@ -96,13 +112,13 @@ class Critic(nn.Module):
 class SAC(object):
 	def __init__(
 		self,
-		state_dim,
-		action_dim,
-		max_action,
-		discount=0.99,
-		tau=0.005,
-		alpha=0.2,
-		hidden_dim=256,
+		state_dim: int,
+		action_dim: int,
+		max_action: float = 1.0,
+		discount: float = 0.99,
+		tau: float = 0.005,
+		alpha: float = 0.2,
+		hidden_dim: int = 256,
 	):
 		self.actor = Actor(state_dim, action_dim, max_action, hidden_dim).to(device)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
@@ -121,14 +137,15 @@ class SAC(object):
 		action, _ = self.actor(state, deterministic, False)
 		return action.cpu().data.numpy().flatten()
 
-	def train(self, replay_buffer, batch_size=100):
-		# Sample replay buffer 
+	def train(self, replay_buffer, batch_size=256):
+		# Sample batches from replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 
+		# Compute the target Q value
 		with torch.no_grad():
 			# Select action according to policy 
 			next_action, logp_pi_next_action = self.actor(next_state)
-			logp_pi_next_action = torch.unsqueeze(logp_pi_next_action, 1)
+			logp_pi_next_action = torch.unsqueeze(logp_pi_next_action, dim=1)
 			# Compute the target Q value
 			target_Q1, target_Q2 = self.critic_target(next_state, next_action)
 			target_Q = torch.min(target_Q1, target_Q2)
@@ -147,12 +164,12 @@ class SAC(object):
 
 		# Compute actor loss
 		action, logp_pi_action = self.actor(state)
-		logp_pi_action = torch.unsqueeze(logp_pi_action, 1)
+		logp_pi_action = torch.unsqueeze(logp_pi_action, dim=1)
 		Q1_pi, Q2_pi = self.critic(state, action)
 		Q_pi = torch.min(Q1_pi, Q2_pi)
 		actor_loss = (self.alpha * logp_pi_action - Q_pi).mean()
 		
-		# Optimize the actor 
+		# Optimize the actor
 		self.actor_optimizer.zero_grad()
 		actor_loss.backward()
 		self.actor_optimizer.step()
@@ -164,16 +181,10 @@ class SAC(object):
 	# save the model
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
-		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
-		
 		torch.save(self.actor.state_dict(), filename + "_actor")
-		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
 
 	# load the model
 	def load(self, filename):
-		self.critic.load_state_dict(torch.load(filename + "_critic"))
-		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.critic.load_state_dict(torch.load(filename + "_critic", map_location=device))
 		self.critic_target = copy.deepcopy(self.critic)
-
-		self.actor.load_state_dict(torch.load(filename + "_actor"))
-		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))

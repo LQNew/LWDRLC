@@ -2,8 +2,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Optional
 
-# Implementation of Vanilla Policy Gradient (VPG)
+
+# Implementation of Proximal Policy Optimization (PPO)
+# Paper: https://arxiv.org/abs/1707.06347
+# Inspired by the implementation of PPO in stable-baseline3 (url: https://github.com/DLR-RM/stable-baselines3)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -119,7 +123,7 @@ class Critic(nn.Module):
 		return v
 
 
-class VPG(nn.Module):
+class PPO(nn.Module):
 	def __init__(
 		self,
 		state_dim: int,
@@ -127,9 +131,13 @@ class VPG(nn.Module):
 		max_action: float = 1.,
 		hidden_dim: int = 64,
 		is_discrete: bool = False,
-		max_grad_norm: float = 4.0,
+		clip_ratio: float = 0.2,
+		ent_coef: float = 0.0,
+		vf_coef: float = 0.5,
+		max_grad_norm: float = 0.5,
+		target_kl: Optional[float] = None,
 	):
-		super(VPG, self).__init__()
+		super(PPO, self).__init__()
 
 		if is_discrete:
 			self.actor = DiscreteActor(state_dim, action_dim, hidden_dim).to(device)
@@ -142,6 +150,16 @@ class VPG(nn.Module):
 
 		self.max_action = max_action
 		self.is_discrete = is_discrete
+		# Hyperparameter for clipping in the policy objective.
+		# Roughly: how far can the new policy go from the old policy while still profiting (improving the objective function)? 
+		# The new policy can still go farther than the clip_ratio says, 
+		# but it doesn't help on the objective anymore. (Usually small, 0.1 ~ 0.3.) 
+		self.clip_ratio = clip_ratio
+		# Roughly what KL divergence we think is appropriate between new and old policies after an update. 
+		# This will get used for early stopping. (Usually small, 0.01 or 0.05.)
+		self.target_kl = target_kl
+		self.ent_coef = ent_coef
+		self.vf_coef = vf_coef
 		self.max_grad_norm = max_grad_norm
 
 	def select_action(self, state, deterministic=False):
@@ -158,31 +176,42 @@ class VPG(nn.Module):
 			# for discrete action space, only need `int item` not `numpy array`
 			return action.data.cpu().numpy().flatten()[0], action.data.cpu().numpy().flatten()[0], logp_pi.data.cpu().numpy(), v.data.cpu().numpy()
 
-	def train(self, replay_buffer, train_v_iters=80):
-		# Sampled from replay buffer
-		for state, action, g_reward, adv_value, _ in replay_buffer.sample():
-			# Compute actor loss
-			_, _, logp_a = self.actor(state, action)
-			actor_loss = -(logp_a * adv_value).mean()  # policy gradient 
-			# Optimize the actor
-			self.actor_optimizer.zero_grad()
-			actor_loss.backward()
-			# Clip grad norm
-			torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
-			self.actor_optimizer.step()
-		
-		for _ in range(train_v_iters):
-			# Sampled from replay buffer 
-			for state, action, g_reward, _, _ in replay_buffer.sample():
+	def train(self, replay_buffer, batch_size: int = 256, repeat_times: int = 10):
+		continue_training = True
+		# Train policy with multiple steps of gradient descent, repeat_times: the re-using times of each trajectory.
+		for i in range(repeat_times):
+			# Sampled from replay buffer
+			for state, action, g_reward, adv_value, logp_old in replay_buffer.sample(batch_size):
+				_, logp_pi, logp_a = self.actor(state, action)
+				ratio = torch.exp(logp_a - logp_old)
+				clip_adv = torch.clamp(ratio, 1-self.clip_ratio, 1+self.clip_ratio) * adv_value
+				policy_loss = -(torch.min(ratio * adv_value, clip_adv)).mean()
+				entropy_loss = torch.mean(torch.exp(logp_pi) * logp_pi)
+
 				current_V = self.critic(state)  # Get current Q estimates
 				# Compute critic loss
 				critic_loss = F.mse_loss(current_V, torch.unsqueeze(g_reward, dim=1))
-				# Optimize the critic
+
+				loss = policy_loss + self.ent_coef * entropy_loss + self.vf_coef * critic_loss
+
+				with torch.no_grad():
+					approx_kl = (logp_old - logp_a).mean().item()
+				if self.target_kl is not None and approx_kl > 1.5 * self.target_kl:
+					print(f"Early stopping at updating step {i} / {repeat_times} due to reaching max kl {approx_kl:.2f}.")
+					continue_training = False
+					break
+				# Optimize the actor
+				self.actor_optimizer.zero_grad()
 				self.critic_optimizer.zero_grad()
-				critic_loss.backward()
+				loss.backward()
 				# Clip grad norm
+				torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm)
 				torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm)
+				self.actor_optimizer.step()
 				self.critic_optimizer.step()
+			
+			if not continue_training:
+				break
 
 	# save the model
 	def save(self, filename):

@@ -1,5 +1,6 @@
 ## LWDRLC: LightWeight Deep Reinforcement Learning libraray for Continous control
-LWDRLC is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
+LWDRLC is a deep reinforcement learning (RL) library which is inspired by some other deep RL code bases (i.e., [Spinning Up repository](https://github.com/openai/spinningup), [Stable-baselines3
+](https://github.com/DLR-RM/stable-baselines3), [Fujimoto TD3 repository](https://github.com/sfujim/TD3), and [Tonic repository](https://github.com/fabiopardo/tonic)).
 
 ### :rocket: Beyond State-Of-The-Art
 LWDRL provides further tricks to improve performance of state-of-the-art algorithms potentially beyond their original papers. Therefore, LWDRL enables every user to achieve professional-level performance just in a few lines of codes.
@@ -29,7 +30,7 @@ For other dockerfiles, you can go to [RL Dockefiles](https://github.com/LQNew/Do
 Run with the scripts `batch_off_policy_mujoco_cuda.sh` / `batch_off_policy_dmc_cuda.sh` / `batch_on_policy_mujoco_cuda.sh` / `batch_on_policy_dmc_cuda.sh`:
 ```bash
 # eg.
-bash batch_off_policy_mujoco_cuda.sh Hopper-v2 TD3 0  # env_name: Ant-v2, algorithm: TD3, CUDA_Num : 0
+bash batch_off_policy_mujoco_cuda.sh Hopper-v2 TD3 0  # env_name: Hopper-v2, algorithm: TD3, CUDA_Num : 0
 ```
 
 ### Plot results

@@ -24,15 +24,20 @@ def weight_init(m):
 		nn.init.orthogonal_(m.weight.data[:, :, mid, mid], gain)
 
 
-# Returns an action for a given state
+# Returns continuous actions for given states
 class Actor(nn.Module):
-	def __init__(self, state_dim, action_dim, max_action, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		max_action: float, 
+		hidden_dim: int = 256
+	):
 		super(Actor, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, hidden_dim)
 		self.l2 = nn.Linear(hidden_dim, hidden_dim)
 		self.l3 = nn.Linear(hidden_dim, action_dim)
-		
 		self.max_action = max_action
 		self.apply(weight_init)
 
@@ -42,8 +47,14 @@ class Actor(nn.Module):
 		return self.max_action * torch.tanh(self.l3(a))
 
 
+# Returns Q-value for given state/action pairs
 class Critic(nn.Module):
-	def __init__(self, state_dim, action_dim, hidden_dim=256):
+	def __init__(
+		self, 
+		state_dim: int, 
+		action_dim: int, 
+		hidden_dim: int = 256
+	):
 		super(Critic, self).__init__()
 		# Q1 architecture
 		self.l1 = nn.Linear(state_dim + action_dim, hidden_dim)
@@ -79,15 +90,15 @@ class Critic(nn.Module):
 class TD3(object):
 	def __init__(
 		self,
-		state_dim,
-		action_dim,
-		max_action,
-		discount=0.99,
-		tau=0.005,
-		policy_noise=0.2,
-		noise_clip=0.5,
-		policy_freq=2,
-		hidden_dim=256,
+		state_dim: int,
+		action_dim: int,
+		max_action: float = 1.0,
+		discount: float = 0.99,
+		tau: float = 0.005,
+		policy_noise: float = 0.2,
+		noise_clip: float = 0.5,
+		policy_freq: int = 2,
+		hidden_dim: int = 256,
 	):
 		self.actor = Actor(state_dim, action_dim, max_action, hidden_dim).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
@@ -142,7 +153,7 @@ class TD3(object):
 			# Compute actor loss
 			actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
 			
-			# Optimize the actor 
+			# Optimize the actor
 			self.actor_optimizer.zero_grad()
 			actor_loss.backward()
 			self.actor_optimizer.step()
@@ -157,16 +168,12 @@ class TD3(object):
 	# save the model
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
-		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
-		
 		torch.save(self.actor.state_dict(), filename + "_actor")
-		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
 
+	# load the model
 	def load(self, filename):
-		self.critic.load_state_dict(torch.load(filename + "_critic"))
-		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.critic.load_state_dict(torch.load(filename + "_critic", map_location=device))
 		self.critic_target = copy.deepcopy(self.critic)
 
-		self.actor.load_state_dict(torch.load(filename + "_actor"))
-		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
 		self.actor_target = copy.deepcopy(self.actor)

@@ -6,29 +6,26 @@ import os
 import time
 import numpy as np
 from gym.spaces import Box, Discrete
-
 # -------------------------------
 from VPG import VPG
 # -------------------------------
 from PPO import PPO
+from PPO import PPO2
 # -------------------------------
 from utils import replay_buffer
 import environments
 # Tag loggers
 from spinupUtils.logx import EpochLogger
 from spinupUtils.run_utils import setup_logger_kwargs
-# Mpi tools
-from spinupUtils.mpi_pytorch import setup_pytorch_for_mpi, sync_params
-from spinupUtils.mpi_tools import mpi_fork, num_procs
 
-def test_agent(policy, eval_env, seed, logger, eval_episodes=10):
+def test_agent(policy, eval_env, logger, eval_episodes=10):
 	for _ in range(eval_episodes):
 		episode_timesteps = 0
 		state, done, ep_ret, ep_len = eval_env.reset(), False, 0, 0
 		while not done:
 			episode_timesteps += 1
-			action, _, _ = policy.select_action(np.array(state))
-			state, reward, done, _ = eval_env.step(action)
+			scaled_action, _, _, _ = policy.select_action(np.array(state), deterministic=True)
+			state, reward, done, _ = eval_env.step(scaled_action)
 			timeout_done = (episode_timesteps == env.max_episode_steps)
 			done = timeout_done or done
 			ep_ret += reward
@@ -38,28 +35,22 @@ def test_agent(policy, eval_env, seed, logger, eval_episodes=10):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--policy", default="VPG")                   # Policy name
-	parser.add_argument("--env", default="HalfCheetah-v2")           # OpenAI gym environment name
-	parser.add_argument("--seed", default=0, type=int)               # Sets Gym, PyTorch and Numpy seeds
+	parser.add_argument("--policy", default="VPG", type=str)         # Policy name
+	parser.add_argument("--env", default="cheetah-run", type=str)    # DeepMind Control Suite environment name
+	parser.add_argument("--seed", default=0, type=int)               # Sets DeepMind Control Suite env, PyTorch and Numpy seeds
 	parser.add_argument("--steps_per_epoch", default=2048, type=int) # steps per epoch
 	parser.add_argument("--epochs", default=1465, type=int)          # Max epochs to run environment
 	parser.add_argument("--discount", default=0.99, type=float)      # `\gamma`, Discount factor
 	parser.add_argument("--lam", default=0.95, type=float)           # `\lambda`, GAE discount factor
-	parser.add_argument("--cpus", default=1, type=int)               # nums of cpu to run parallel code with mpi
 	parser.add_argument("--save_model", action="store_true")         # Save model and optimizer parameters
-	parser.add_argument("--load_model", default="")                  # Model load file name, "" doesn't load, "default" uses file_name
+	parser.add_argument("--save_freq", default=10, type=int)         # How often (evaluation steps) we save the model
 	parser.add_argument("--exp_name", type=str)       				 # Name for algorithms
 	args = parser.parse_args()
 
-	file_name = f"{args.policy}_{args.env}_{args.seed}"
+	file_name = f"{args.policy}_{args.env}_s{args.seed}"
 	print(f"---------------------------------------")
 	print(f"Policy: {args.policy}, Env: {args.env}, Seed: {args.seed}")
 	print(f"---------------------------------------")
-
-	mpi_fork(args.cpus)  # run parallel code with mpi
-
-	# Special function to avoid certain slowdowns from PyTorch + MPI combo.
-	setup_pytorch_for_mpi()
 
 	# Make envs
 	env = environments.ControlSuite(args.env)
@@ -90,6 +81,8 @@ if __name__ == "__main__":
 		"action_dim": action_dim,
 		"is_discrete": is_discrete,
 	}
+	if not is_discrete:
+		kwargs["max_action"] = float(action_space.high[0])
 
 	# Initialize policy
 	# ----------------------------------------------
@@ -98,27 +91,20 @@ if __name__ == "__main__":
 	# ----------------------------------------------
 	elif args.policy == "PPO":
 		policy = PPO.PPO(**kwargs)
+	elif args.policy == "PPO2":
+		policy = PPO2.PPO(**kwargs)
 	else:
 		raise ValueError(f"Invalid Policy: {args.policy}!")
 
-	if args.save_model and not os.path.exists("./models"):
-		os.makedirs("./models")
-
-	if args.load_model != "":
-		policy_file = file_name if args.load_model == "default" else args.load_model
-		if not os.path.exists(f"./models/{policy_file}"):
-			assert f"The loading model path of `../models/{policy_file}` does not exist! "
-		policy.load(f"./models/{policy_file}")
+	if args.save_model and not os.path.exists(f"./models/{file_name}"):
+		os.makedirs(f"./models/{file_name}")
 
 	# Setup loggers
 	logger_kwargs = setup_logger_kwargs(args.exp_name, args.seed, datestamp=False)
 	logger = EpochLogger(**logger_kwargs)
 
-	# Sync params across processes
-	sync_params(policy)
-
 	# Set up experience buffer
-	local_steps_per_epoch = int(args.steps_per_epoch / num_procs())
+	local_steps_per_epoch = int(args.steps_per_epoch)
 	_replay_buffer = replay_buffer.VPGBuffer(
 		state_dim, action_dim, local_steps_per_epoch, args.discount, args.lam, is_discrete)
 	
@@ -132,9 +118,9 @@ if __name__ == "__main__":
 		for t in range(local_steps_per_epoch):
 			episode_timesteps += 1
 
-			action, logp_pi, v = policy.select_action(state)
+			scaled_action, action, logp_pi, v = policy.select_action(state)
 			# Perform action
-			next_state, reward, done, _ = env.step(action) 
+			next_state, reward, done, _ = env.step(scaled_action) 
 			epoch_done = (t == local_steps_per_epoch - 1)
 			timeout_done = (episode_timesteps == env.max_episode_steps)
 			terminal = done or timeout_done
@@ -149,8 +135,8 @@ if __name__ == "__main__":
 				if epoch_done and not(terminal):
 					print(f"Warning: trajectory cut off by local epoch at {episode_timesteps} steps.", flush=True)
 				if timeout_done or epoch_done:
-					_, _, v = policy.select_action(state)
-				else:
+					_, _, _, v = policy.select_action(state)
+				elif done:
 					v = 0
 				_replay_buffer.finish_path(v)
 				if terminal:
@@ -164,9 +150,9 @@ if __name__ == "__main__":
 		# perform VPG update
 		policy.train(_replay_buffer)
 		
-		test_agent(policy, eval_env, args.seed, logger)
-		if args.save_model: 
-			policy.save(f"./models/{file_name}")
+		test_agent(policy, eval_env, logger)
+		if args.save_model and (epoch + 1) % int(args.save_freq) == 0: 
+			policy.save(f"./models/{file_name}/{(epoch+1) * args.steps_per_epoch}_steps")
 		logger.log_tabular("EpRet", with_min_and_max=True)
 		logger.log_tabular("TestEpRet", with_min_and_max=True)
 		logger.log_tabular("EpLen", average_only=True)
